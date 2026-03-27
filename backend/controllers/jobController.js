@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const Job = require('../models/job');
+const StudentJob = require('../models/studentJob');
 
 // Create a new job posting
 exports.createJob = async (req, res) => {
@@ -39,8 +41,9 @@ exports.createJob = async (req, res) => {
 exports.getEmployerJobs = async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
-    
-    const query = { employerId: req.user.userId };
+    const employerId = new mongoose.Types.ObjectId(req.user.userId);
+
+    const query = { employerId };
     
     if (status && status !== 'all') {
       query.status = status;
@@ -263,11 +266,87 @@ exports.getActiveJobs = async (req, res) => {
   }
 };
 
+// Get single active job by ID for students (public)
+exports.getPublicJobById = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id).select('-__v');
+
+    if (!job || job.status !== 'active' || job.isExpired()) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: job,
+    });
+  } catch (error) {
+    console.error('Error fetching public job:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch job',
+      error: error.message,
+    });
+  }
+};
+
+// Get applications for a specific job (employer view)
+exports.getJobApplications = async (req, res) => {
+  try {
+    const employerId = req.user.userId;
+    const jobId = req.params.id;
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    if (job.employerId.toString() !== employerId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not own this job posting.',
+      });
+    }
+
+    const applications = await StudentJob.find({ jobId, hasApplied: true })
+      .sort({ appliedAt: -1 })
+      .populate('studentId', 'name email studentProfile');
+
+    const host = `${req.protocol}://${req.get('host')}`;
+
+    const result = applications.map((a) => ({
+      id: a._id,
+      studentName: a.studentId?.name,
+      studentEmail: a.studentId?.email,
+      appliedAt: a.appliedAt,
+      status: a.status,
+      coverLetter: a.coverLetter,
+      resumeUrl: a.resumePath ? `${host}/${a.resumePath.replace(/\\/g, '/')}` : null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Error fetching job applications:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch job applications',
+      error: error.message,
+    });
+  }
+};
+
 // Get job statistics for employer dashboard
 exports.getJobStatistics = async (req, res) => {
   try {
+    const employerId = new mongoose.Types.ObjectId(req.user.userId);
+
     const stats = await Job.aggregate([
-      { $match: { employerId: req.user.userId } },
+      { $match: { employerId } },
       {
         $group: {
           _id: '$status',
@@ -278,7 +357,7 @@ exports.getJobStatistics = async (req, res) => {
       }
     ]);
     
-    const totalJobs = await Job.countDocuments({ employerId: req.user.userId });
+    const totalJobs = await Job.countDocuments({ employerId });
     
     res.status(200).json({
       success: true,

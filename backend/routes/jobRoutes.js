@@ -11,6 +11,7 @@ const {
 
 // Public routes (for students)
 router.get('/active', validateSearchFilters, jobController.getActiveJobs);
+router.get('/active/:id', jobController.getPublicJobById);
 
 // Employer routes (require authentication and employer role)
 router.use(authenticateUser, checkEmployerRole); // Apply auth + employer role check to all routes below
@@ -19,6 +20,7 @@ router.post('/', validateJobCreation, jobController.createJob);
 router.get('/my-posts', jobController.getEmployerJobs);
 router.get('/statistics', jobController.getJobStatistics);
 router.get('/:id', jobController.getJobById);
+router.get('/:id/applications', jobController.getJobApplications);
 router.put('/:id', validateJobUpdate, jobController.updateJob);
 router.delete('/:id', jobController.deleteJob);
 

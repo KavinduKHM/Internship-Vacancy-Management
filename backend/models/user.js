@@ -21,11 +21,24 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['employer', 'student', 'admin'],
-    default: 'employer'
+    default: 'student'
   },
+  // Employer specific fields
   company: {
     type: String,
     trim: true
+  },
+  // Student specific fields
+  studentProfile: {
+    university: String,
+    degree: String,
+    graduationYear: Number,
+    skills: [String],
+    resume: String,
+    portfolio: String,
+    phone: String,
+    location: String,
+    profilePicture: String
   },
   createdAt: {
     type: Date,

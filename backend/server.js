@@ -29,9 +29,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Static files for uploads (e.g., resumes)
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
+app.use('/api/students', require('./routes/studentRoutes'));
 
 
 // Error handling middleware
