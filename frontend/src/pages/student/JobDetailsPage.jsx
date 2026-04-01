@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import Loader from '../../components/common/Loader';
 import Modal from '../../components/common/Modal';
+import { BACKEND_URL } from '../../services/api';
 
 const JobDetailsPage = () => {
   const { id } = useParams();
@@ -21,12 +22,229 @@ const JobDetailsPage = () => {
   const { data: jobData, isLoading } = usePublicJob(id);
   const { data: savedJobsData, refetch } = useSavedJobs();
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
 
   const job = jobData?.data;
   const isSaved = savedJobsData?.data?.some(j => j._id === id);
+  const posterSrc = job?.posterUrl
+    ? (/^https?:\/\//i.test(job.posterUrl)
+        ? job.posterUrl
+        : `${BACKEND_URL}${job.posterUrl.startsWith('/') ? '' : '/'}${job.posterUrl}`)
+    : null;
+
+  const shareJobUrl = `${window.location.origin}/jobs/${id}`;
+  const shareText = `${job?.jobTitle || 'Internship Opportunity'} at ${job?.company || 'a company'}\n\nJob details: ${shareJobUrl}`;
+  const shareTextWithPosterUrl = `${shareText}${posterSrc ? `\nPoster: ${posterSrc}` : ''}`;
+
+  const getPosterFileForShare = async () => {
+    if (!posterSrc) return null;
+
+    const response = await fetch(posterSrc);
+    if (!response.ok) {
+      throw new Error('Failed to load poster image');
+    }
+
+    const blob = await response.blob();
+    const contentType = blob.type || 'image/png';
+
+    const extFromType = {
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/webp': 'webp',
+    };
+
+    const ext = extFromType[contentType] || 'png';
+    const safeTitle = (job?.jobTitle || 'job-poster')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .slice(0, 40);
+
+    const fileName = `${safeTitle || 'job-poster'}.${ext}`;
+    return new File([blob], fileName, { type: contentType });
+  };
+
+  const canShareFiles = (files) => {
+    if (!files || files.length === 0) return false;
+    if (typeof navigator === 'undefined') return false;
+    if (!navigator.share) return false;
+    if (!navigator.canShare) return false;
+    try {
+      return navigator.canShare({ files });
+    } catch {
+      return false;
+    }
+  };
+
+  const shareNative = async ({ preferFiles }) => {
+    try {
+      if (!navigator.share) {
+        throw new Error('Native share not supported');
+      }
+
+      if (preferFiles && posterSrc) {
+        const posterFile = await getPosterFileForShare();
+        if (posterFile && canShareFiles([posterFile])) {
+          await navigator.share({
+            title: `${job?.jobTitle || 'Opportunity'}`,
+            text: shareText,
+            url: shareJobUrl,
+            files: [posterFile],
+          });
+          return true;
+        }
+      }
+
+      await navigator.share({
+        title: `${job?.jobTitle || 'Opportunity'}`,
+        text: posterSrc ? shareTextWithPosterUrl : shareText,
+        url: shareJobUrl,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const copyPosterImageToClipboard = async ({ silent = false, closeModal = true } = {}) => {
+    if (!posterSrc) {
+      if (!silent) toast.error('No poster available for this job');
+      return false;
+    }
+
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      if (!silent) toast.error('Copy image is not supported in this browser');
+      return false;
+    }
+
+    try {
+      const response = await fetch(posterSrc);
+      if (!response.ok) {
+        throw new Error('Failed to load poster image');
+      }
+      const blob = await response.blob();
+
+      // Some browsers require a PNG clipboard type
+      const mimeType = blob.type || 'image/png';
+      const clipboardBlob = mimeType.startsWith('image/') ? blob : new Blob([blob], { type: 'image/png' });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [clipboardBlob.type]: clipboardBlob,
+        }),
+      ]);
+
+      if (!silent) toast.success('Poster image copied. Paste it to share.');
+      if (closeModal) setShowShareModal(false);
+      return true;
+    } catch (e) {
+      console.error('Copy poster failed:', e);
+      if (!silent) toast.error('Failed to copy poster image');
+      return false;
+    }
+  };
+
+  const downloadPosterImage = async () => {
+    if (!posterSrc) {
+      toast.error('No poster available for this job');
+      return;
+    }
+
+    try {
+      const response = await fetch(posterSrc);
+      if (!response.ok) {
+        throw new Error('Failed to load poster image');
+      }
+      const blob = await response.blob();
+
+      const contentType = blob.type || 'image/png';
+      const extFromType = {
+        'image/png': 'png',
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/webp': 'webp',
+      };
+      const ext = extFromType[contentType] || 'png';
+
+      const safeTitle = (job?.jobTitle || 'job-poster')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 40);
+      const fileName = `${safeTitle || 'job-poster'}.${ext}`;
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      setShowShareModal(false);
+    } catch (e) {
+      console.error('Download poster failed:', e);
+      toast.error('Failed to download poster image');
+    }
+  };
+
+  const shareToWhatsApp = () => {
+    // Try to share the actual image via native share sheet (best effort, mostly mobile).
+    shareNative({ preferFiles: true }).then((didShare) => {
+      if (didShare) {
+        setShowShareModal(false);
+        return;
+      }
+
+      // Desktop: we can't auto-paste into WhatsApp, but we can auto-copy the image.
+      copyPosterImageToClipboard({ silent: true, closeModal: false }).finally(() => {
+        const url = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+        toast.success('Poster copied. Paste (Ctrl+V) in WhatsApp chat.');
+        setShowShareModal(false);
+      });
+    });
+  };
+
+  const shareToMessenger = () => {
+    // Try to share the actual image via native share sheet (best effort).
+    shareNative({ preferFiles: true }).then((didShare) => {
+      if (didShare) {
+        setShowShareModal(false);
+        return;
+      }
+      // Desktop: Facebook share dialog shares URL only (no file attachment).
+      copyPosterImageToClipboard({ silent: true, closeModal: false }).finally(() => {
+        const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareJobUrl)}&quote=${encodeURIComponent(shareText)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+        toast.success('Poster copied. Paste (Ctrl+V) in chat if supported.');
+        setShowShareModal(false);
+      });
+    });
+  };
+
+  const shareToEmail = () => {
+    // mailto: cannot attach files; try native share first so email apps can receive the image.
+    shareNative({ preferFiles: true }).then((didShare) => {
+      if (didShare) {
+        setShowShareModal(false);
+        return;
+      }
+
+      // Desktop: we can't attach via mailto, but we can copy the image so the user can paste into webmail/client.
+      copyPosterImageToClipboard({ silent: true, closeModal: false }).finally(() => {
+        const subject = `Internship Opportunity: ${job?.jobTitle || ''}`.trim();
+        const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(shareText)}`;
+        window.location.href = mailto;
+        toast.success('Poster copied. Paste (Ctrl+V) into your email.');
+        setShowShareModal(false);
+      });
+    });
+  };
 
   const handleSaveJob = async () => {
     if (!user) {
@@ -132,6 +350,17 @@ const JobDetailsPage = () => {
         )}
         </div>
 
+        {posterSrc && (
+          <div className="mt-6">
+            <img
+              src={posterSrc}
+              alt={`${job.jobTitle} poster`}
+              className="w-full h-auto max-h-96 object-contain rounded-xl border border-slate-800 bg-slate-950/40"
+              loading="lazy"
+            />
+          </div>
+        )}
+
         <div className="mt-6 space-y-6">
         <div>
           <h2 className="text-lg md:text-xl font-semibold text-white mb-3">Description</h2>
@@ -228,7 +457,11 @@ const JobDetailsPage = () => {
         >
           {isSaved ? 'Saved' : 'Save for Later'}
         </button>
-        <button className="w-full btn-secondary flex items-center justify-center gap-2 text-xs">
+        <button
+          onClick={() => setShowShareModal(true)}
+          className="w-full btn-secondary flex items-center justify-center gap-2 text-xs"
+          type="button"
+        >
           <FiShare2 className="h-4 w-4" />
           Share Opportunity
         </button>
@@ -335,6 +568,75 @@ const JobDetailsPage = () => {
       </button>
       </div>
     </div>
+    </Modal>
+
+    {/* Share Modal */}
+    <Modal
+      isOpen={showShareModal}
+      onClose={() => setShowShareModal(false)}
+      title="Share Opportunity"
+      size="md"
+    >
+      <div className="bg-dark-card rounded-2xl border border-slate-800 p-6 md:p-8 space-y-4">
+        <p className="text-sm text-slate-300">
+          Share this opportunity via your preferred platform.
+        </p>
+        {posterSrc && (
+          <div className="space-y-3">
+            <button
+              onClick={copyPosterImageToClipboard}
+              className="w-full btn-secondary flex items-center justify-center gap-2"
+              type="button"
+            >
+              Copy Poster Image (Desktop)
+            </button>
+            <button
+              onClick={downloadPosterImage}
+              className="w-full btn-secondary flex items-center justify-center gap-2"
+              type="button"
+            >
+              Download Poster
+            </button>
+          </div>
+        )}
+        <div className="space-y-3">
+          <button
+            onClick={shareToWhatsApp}
+            className="w-full btn-primary flex items-center justify-center gap-2"
+            type="button"
+          >
+            WhatsApp
+          </button>
+          <button
+            onClick={shareToMessenger}
+            className="w-full btn-secondary flex items-center justify-center gap-2"
+            type="button"
+          >
+            Messenger / Facebook
+          </button>
+          <button
+            onClick={shareToEmail}
+            className="w-full btn-secondary flex items-center justify-center gap-2"
+            type="button"
+          >
+            <FiMail className="h-4 w-4" />
+            Email
+          </button>
+        </div>
+        {posterSrc && (
+          <div className="pt-3 border-t border-slate-800">
+            <p className="text-xs text-slate-400 mb-2">Poster link</p>
+            <a
+              href={posterSrc}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary-300 hover:text-primary-200 break-all"
+            >
+              {posterSrc}
+            </a>
+          </div>
+        )}
+      </div>
     </Modal>
     </div>
   );

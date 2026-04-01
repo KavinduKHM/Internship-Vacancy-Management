@@ -10,6 +10,10 @@ exports.createJob = async (req, res) => {
       employerId: req.user.userId // Assuming req.user contains userId from auth middleware
     };
 
+    if (req.file) {
+      jobData.posterUrl = `/uploads/posters/${req.file.filename}`;
+    }
+
     const job = new Job(jobData);
     await job.save();
 
@@ -138,9 +142,14 @@ exports.updateJob = async (req, res) => {
       });
     }
 
+    const updateData = { ...req.body, updatedAt: Date.now() };
+    if (req.file) {
+      updateData.posterUrl = `/uploads/posters/${req.file.filename}`;
+    }
+
     const updatedJob = await Job.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, updatedAt: Date.now() },
+      updateData,
       { new: true, runValidators: true }
     );
 

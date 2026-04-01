@@ -5,9 +5,16 @@ import {
   FiArrowLeft, FiEdit, FiTrash2, FiMapPin, FiCalendar, 
   FiBriefcase, FiUsers, FiEye, FiMail, FiLink, FiDownload 
 } from 'react-icons/fi';
+import { BACKEND_URL } from '../../services/api';
 
 const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdit, onDelete, onBack }) => {
   if (!job) return null;
+
+  const posterSrc = job.posterUrl
+    ? (/^https?:\/\//i.test(job.posterUrl)
+        ? job.posterUrl
+        : `${BACKEND_URL}${job.posterUrl.startsWith('/') ? '' : '/'}${job.posterUrl}`)
+    : null;
 
   const statusColors = {
     active: 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40',
@@ -112,6 +119,16 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Left: description and requirements */}
       <div className="lg:col-span-2 space-y-6">
+        {posterSrc && (
+          <div className="bg-dark-card rounded-xl shadow-sm p-4 md:p-5">
+            <img
+              src={posterSrc}
+              alt={`${job.jobTitle} poster`}
+              className="w-full h-auto max-h-96 object-contain rounded-xl border border-slate-800 bg-slate-950/40"
+              loading="lazy"
+            />
+          </div>
+        )}
         <div className="bg-dark-card rounded-xl shadow-sm p-6 md:p-7">
         <h2 className="text-lg md:text-xl font-semibold text-white mb-3">Job Description</h2>
         <p className="text-sm md:text-base text-slate-200 leading-relaxed whitespace-pre-wrap">

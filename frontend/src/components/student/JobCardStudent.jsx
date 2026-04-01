@@ -3,15 +3,31 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { FiMapPin, FiCalendar, FiBriefcase, FiBookmark, FiClock } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
+import { BACKEND_URL } from '../../services/api';
 
 const JobCardStudent = ({ job, isSaved, onSave, onUnsave, layout = 'list' }) => {
   const { user } = useAuth();
   const isExpired = new Date(job.applicationDeadline) < new Date();
+  const posterSrc = job.posterUrl
+    ? (/^https?:\/\//i.test(job.posterUrl)
+        ? job.posterUrl
+        : `${BACKEND_URL}${job.posterUrl.startsWith('/') ? '' : '/'}${job.posterUrl}`)
+    : null;
 
   if (layout === 'grid') {
     return (
       <div className="bg-dark-card rounded-2xl p-6 flex flex-col justify-between gap-6 hover:shadow-2xl transition-all duration-300 border border-slate-800/60 hover:border-primary-500/30 group h-full">
         <div>
+          {posterSrc && (
+            <Link to={`/jobs/${job._id}`} className="block mb-4">
+              <img
+                src={posterSrc}
+                alt={`${job.jobTitle} poster`}
+                className="w-full h-auto max-h-44 object-contain rounded-xl border border-slate-800 bg-slate-950/40"
+                loading="lazy"
+              />
+            </Link>
+          )}
           <div className="flex justify-between items-start mb-4">
             <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-lg border border-primary-500/20 bg-primary-900/10 text-primary-500 group-hover:bg-primary-600 group-hover:text-white transition-colors duration-300 shadow-inner">
               {job.company ? job.company.charAt(0).toUpperCase() : 'C'}
@@ -79,10 +95,20 @@ const JobCardStudent = ({ job, isSaved, onSave, onUnsave, layout = 'list' }) => 
       
       {/* Left side: Logo & Info */}
       <div className="flex items-center gap-5 flex-1">
-        {/* Placeholder Company Circle Logo */}
-        <div className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xl border border-primary-500/20 bg-primary-900/10 text-primary-500 group-hover:bg-primary-600 group-hover:text-white transition-colors duration-300 shadow-inner">
-          {job.company ? job.company.charAt(0).toUpperCase() : 'C'}
-        </div>
+        {posterSrc ? (
+          <Link to={`/jobs/${job._id}`} className="block flex-shrink-0">
+            <img
+              src={posterSrc}
+              alt={`${job.jobTitle} poster`}
+              className="w-14 h-auto max-h-14 rounded-xl object-contain border border-slate-800 bg-slate-950/40"
+              loading="lazy"
+            />
+          </Link>
+        ) : (
+          <div className="w-14 h-14 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xl border border-primary-500/20 bg-primary-900/10 text-primary-500 group-hover:bg-primary-600 group-hover:text-white transition-colors duration-300 shadow-inner">
+            {job.company ? job.company.charAt(0).toUpperCase() : 'C'}
+          </div>
+        )}
         
         <div className="flex flex-col">
           <div className="flex items-center gap-3 mb-1">

@@ -7,6 +7,10 @@ const jobSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  posterUrl: {
+    type: String,
+    trim: true
+  },
   jobTitle: {
     type: String,
     required: [true, 'Job title is required'],

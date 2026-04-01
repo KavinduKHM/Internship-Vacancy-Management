@@ -10,7 +10,7 @@ const router = express.Router();
 // Multer configuration for resume uploads
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
-		cb(null, path.join('uploads', 'resumes'));
+		cb(null, path.join(__dirname, '..', 'uploads', 'resumes'));
 	},
 	filename: (req, file, cb) => {
 		const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

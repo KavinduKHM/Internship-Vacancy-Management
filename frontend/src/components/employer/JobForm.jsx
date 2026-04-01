@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { BACKEND_URL } from '../../services/api';
 
 const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
+	const [posterFile, setPosterFile] = useState(null);
+	const currentPosterSrc = useMemo(() => {
+		const url = initialValues?.posterUrl;
+		if (!url) return null;
+		if (/^https?:\/\//i.test(url)) return url;
+		if (url.startsWith('/')) return `${BACKEND_URL}${url}`;
+		return `${BACKEND_URL}/${url}`;
+	}, [initialValues]);
+
 	const [formData, setFormData] = useState({
 		jobTitle: initialValues.jobTitle || '',
 		company: initialValues.company || '',
@@ -29,6 +39,11 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 		}));
 	};
 
+	const handlePosterChange = (e) => {
+		const file = e.target.files?.[0] || null;
+		setPosterFile(file);
+	};
+
 	const handleSubmit = (e) => {
 		e.preventDefault();
 
@@ -53,8 +68,28 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 			positionsAvailable: Number(formData.positionsAvailable) || 1,
 		};
 
+		const multipart = new FormData();
+		multipart.append('jobTitle', payload.jobTitle);
+		multipart.append('company', payload.company);
+		multipart.append('specialization', payload.specialization);
+		multipart.append('requirements', payload.requirements);
+		multipart.append('description', payload.description);
+		multipart.append('location[city]', payload.location.city);
+		if (payload.location.address) {
+			multipart.append('location[address]', payload.location.address);
+		}
+		multipart.append('location[isRemote]', payload.location.isRemote ? 'true' : 'false');
+		multipart.append('applicationDeadline', payload.applicationDeadline);
+		multipart.append('employmentType', payload.employmentType);
+		multipart.append('experienceLevel', payload.experienceLevel);
+		multipart.append('positionsAvailable', String(payload.positionsAvailable));
+		payload.skills.forEach((skill) => multipart.append('skills[]', skill));
+		if (posterFile) {
+			multipart.append('poster', posterFile);
+		}
+
 		if (onSubmit) {
-			onSubmit(payload);
+			onSubmit(multipart);
 		}
 	};
 
@@ -100,6 +135,30 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 								className="mt-1 block w-full rounded-md border-slate-700 bg-slate-900/60 text-slate-50 shadow-sm focus:border-primary-500 focus:ring-primary-500"
 								required
 							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-slate-200">
+								Job Poster (optional)
+							</label>
+							<input
+								type="file"
+								name="poster"
+								accept="image/png,image/jpeg,image/webp"
+								onChange={handlePosterChange}
+								className="mt-1 block w-full rounded-md border border-slate-700 bg-slate-900/60 text-slate-200 file:mr-4 file:rounded-md file:border-0 file:bg-slate-800 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-200 hover:file:bg-slate-700"
+							/>
+							{currentPosterSrc && !posterFile && (
+								<div className="mt-3">
+									<p className="text-xs text-slate-400 mb-2">Current poster</p>
+									<img
+										src={currentPosterSrc}
+										alt="Current job poster"
+										className="w-full h-auto max-h-40 object-contain rounded-lg border border-slate-800 bg-slate-950/40"
+										loading="lazy"
+									/>
+								</div>
+							)}
 						</div>
 
 						<div>

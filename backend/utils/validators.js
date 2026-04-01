@@ -50,6 +50,16 @@ const validateJobCreation = [
   
   body('skills')
     .optional()
+    .customSanitizer((value) => {
+      if (typeof value === 'string') {
+        // Multipart forms can send a single skills[] value as a string
+        return value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      return value;
+    })
     .isArray().withMessage('Skills must be an array'),
   
   (req, res, next) => {
@@ -114,6 +124,19 @@ const validateJobUpdate = [
   body('positionsAvailable')
     .optional()
     .isInt({ min: 1 }).withMessage('Positions must be at least 1'),
+
+  body('skills')
+    .optional()
+    .customSanitizer((value) => {
+      if (typeof value === 'string') {
+        return value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      return value;
+    })
+    .isArray().withMessage('Skills must be an array'),
   
   (req, res, next) => {
     const errors = validationResult(req);
