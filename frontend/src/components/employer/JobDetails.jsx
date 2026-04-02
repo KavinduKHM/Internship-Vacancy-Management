@@ -219,61 +219,72 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
               </div>
             </div>
 
-            <div className="flex flex-col items-start md:items-end gap-2">
+            <div className="w-full md:w-auto flex flex-col items-stretch md:items-end gap-2">
+              <div className="flex justify-start md:justify-end">
               <span className="px-3 py-1 text-[11px] rounded-full bg-slate-800 text-slate-100 border border-slate-700">
-              {displayStatus || 'Applied'}
+                {displayStatus || 'Applied'}
               </span>
+              </div>
+
               {!isFinal && typeof onUpdateApplicationStatus === 'function' && (
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button
-                    onClick={() => onUpdateApplicationStatus(app.id, 'interview')}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/70 border border-slate-700 text-xs font-medium text-slate-100 hover:bg-slate-800 transition"
-                  >
-                    Call for Interview
-                  </button>
-                  <button
-                    onClick={() => onUpdateApplicationStatus(app.id, 'accepted')}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-600 text-xs font-medium text-white hover:bg-primary-700 transition"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    onClick={() => onUpdateApplicationStatus(app.id, 'rejected')}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-600 text-xs font-medium text-white hover:bg-red-700 transition"
-                  >
-                    Reject
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-80">
+                <button
+                onClick={() => onUpdateApplicationStatus(app.id, 'interview')}
+                className="h-8 w-full inline-flex items-center justify-center px-2.5 rounded-full bg-slate-900/70 border border-slate-700 text-[11px] font-medium text-slate-100 hover:bg-slate-800 transition"
+                >
+                Call for Interview
+                </button>
+                <button
+                onClick={() => onUpdateApplicationStatus(app.id, 'accepted')}
+                className="h-8 w-full inline-flex items-center justify-center px-2.5 rounded-full bg-primary-600 text-[11px] font-medium text-white hover:bg-primary-700 transition"
+                >
+                Accept
+                </button>
+                <button
+                onClick={() => onUpdateApplicationStatus(app.id, 'rejected')}
+                className="h-8 w-full inline-flex items-center justify-center px-2.5 rounded-full bg-red-600 text-[11px] font-medium text-white hover:bg-red-700 transition"
+                >
+                Reject
+                </button>
+              </div>
               )}
-			  {mailToHref ? (
-				<a
-					href={mailToHref}
-					className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/70 border border-slate-700 text-xs font-medium text-slate-100 hover:bg-slate-800 transition"
-					title="Email applicant"
-				>
-					<FiMail className="h-3 w-3" />
-					Email Applicant
-				</a>
-			  ) : (
-				<span className="text-[11px] text-slate-500">No email available</span>
-			  )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full md:w-80">
+              {mailToHref ? (
+                <a
+                href={mailToHref}
+                className="h-8 w-full inline-flex items-center justify-center gap-2 px-2.5 rounded-full bg-slate-900/70 border border-slate-700 text-[11px] font-medium text-slate-100 hover:bg-slate-800 transition"
+                title="Email applicant"
+                >
+                <FiMail className="h-3 w-3" />
+                Email Applicant
+                </a>
+              ) : (
+                <span className="h-8 w-full inline-flex items-center justify-center px-2.5 rounded-full bg-slate-950/40 border border-slate-800 text-[11px] font-medium text-slate-500">
+                No email
+                </span>
+              )}
+
               {app.resumeUrl ? (
-              <button
+                <button
                 type="button"
                 onClick={() => {
                   if (typeof onMarkApplicationViewed === 'function') {
-                    onMarkApplicationViewed(app.id);
+                  onMarkApplicationViewed(app.id);
                   }
                   window.open(app.resumeUrl, '_blank', 'noopener,noreferrer');
                 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-600 text-xs font-medium text-white hover:bg-primary-700 transition"
-              >
+                className="h-8 w-full inline-flex items-center justify-center gap-2 px-2.5 rounded-full bg-primary-600 text-[11px] font-medium text-white hover:bg-primary-700 transition"
+                >
                 <FiDownload className="h-3 w-3" />
                 Download CV
-              </button>
+                </button>
               ) : (
-              <span className="text-[11px] text-slate-500">No CV attached</span>
+                <span className="h-8 w-full inline-flex items-center justify-center px-2.5 rounded-full bg-slate-950/40 border border-slate-800 text-[11px] font-medium text-slate-500">
+                No CV
+                </span>
               )}
+              </div>
             </div>
             </div>
             );
