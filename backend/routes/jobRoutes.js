@@ -66,6 +66,8 @@ router.get('/my-posts', jobController.getEmployerJobs);
 router.get('/statistics', jobController.getJobStatistics);
 router.get('/:id', jobController.getJobById);
 router.get('/:id/applications', jobController.getJobApplications);
+router.put('/:id/applications/:applicationId/viewed', jobController.markApplicationViewed);
+router.put('/:id/applications/:applicationId/status', jobController.updateApplicationStatus);
 router.put('/:id', posterUploadSingle, validateJobUpdate, jobController.updateJob);
 router.delete('/:id', jobController.deleteJob);
 

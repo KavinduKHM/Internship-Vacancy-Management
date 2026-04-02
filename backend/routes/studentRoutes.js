@@ -36,6 +36,8 @@ router.use(authenticateUser, checkStudentRole);
 // Applications
 router.post('/jobs/:jobId/apply', upload.single('resume'), studentController.applyForJob);
 router.get('/applied-jobs', studentController.getAppliedJobs);
+router.put('/applications/:applicationId', upload.single('resume'), studentController.updateApplication);
+router.delete('/applications/:applicationId', studentController.deleteApplication);
 
 // Saved jobs
 router.post('/jobs/:jobId/save', studentController.saveJob);

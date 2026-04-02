@@ -44,9 +44,7 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 		setPosterFile(file);
 	};
 
-	const handleSubmit = (e) => {
-		e.preventDefault();
-
+	const buildMultipart = (status) => {
 		const payload = {
 			jobTitle: formData.jobTitle,
 			company: formData.company,
@@ -66,6 +64,7 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 				.filter(Boolean),
 			experienceLevel: formData.experienceLevel,
 			positionsAvailable: Number(formData.positionsAvailable) || 1,
+			status,
 		};
 
 		const multipart = new FormData();
@@ -79,17 +78,35 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 			multipart.append('location[address]', payload.location.address);
 		}
 		multipart.append('location[isRemote]', payload.location.isRemote ? 'true' : 'false');
-		multipart.append('applicationDeadline', payload.applicationDeadline);
+		if (payload.applicationDeadline) {
+			multipart.append('applicationDeadline', payload.applicationDeadline);
+		}
 		multipart.append('employmentType', payload.employmentType);
 		multipart.append('experienceLevel', payload.experienceLevel);
 		multipart.append('positionsAvailable', String(payload.positionsAvailable));
 		payload.skills.forEach((skill) => multipart.append('skills[]', skill));
+		if (payload.status) {
+			multipart.append('status', payload.status);
+		}
 		if (posterFile) {
 			multipart.append('poster', posterFile);
 		}
 
+		return multipart;
+	};
+
+	const handleSubmit = (e) => {
+		e.preventDefault();
+
 		if (onSubmit) {
-			onSubmit(multipart);
+			onSubmit(buildMultipart('active'));
+		}
+	};
+
+	const handleSaveDraft = () => {
+		if (isLoading) return;
+		if (onSubmit) {
+			onSubmit(buildMultipart('draft'));
 		}
 	};
 
@@ -405,6 +422,8 @@ const JobForm = ({ initialValues = {}, onSubmit, isLoading }) => {
 				<div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mt-4">
 					<button
 						type="button"
+						onClick={handleSaveDraft}
+						disabled={isLoading}
 						className="inline-flex justify-center rounded-full border border-slate-700 bg-slate-900/60 px-6 py-2.5 text-sm font-medium text-slate-200 shadow-sm hover:bg-slate-800 transition"
 					>
 						Save Draft

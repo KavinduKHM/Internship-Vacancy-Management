@@ -24,49 +24,87 @@ const StudentDashboard = () => {
   const { data: appliedJobs, isLoading: appliedLoading } = useAppliedJobs({ limit: 5 });
   const { data: savedJobs, isLoading: savedLoading } = useSavedJobs({ limit: 5 });
 
+  const statsData = stats?.data;
+
   if (statsLoading || appliedLoading || savedLoading) {
     return <Loader />;
   }
 
   const monthlyData = {
-    labels: stats?.monthLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: statsData?.monthLabels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
       {
         label: 'Applications',
-        data: stats?.monthlyApplications || [0, 0, 0, 0, 0, 0],
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        borderColor: 'rgb(59, 130, 246)',
+        data: statsData?.monthlyApplications || [0, 0, 0, 0, 0, 0],
+        backgroundColor: 'rgba(249, 115, 22, 0.35)',
+        borderColor: 'rgb(249, 115, 22)',
         borderWidth: 1,
       },
     ],
   };
 
+  // Darkest -> lightest (matches label order)
+  // "Lucid" look: per-slice gradients (light -> dark inside each slice).
+  const doughnutStops = [
+    { from: 'rgba(234, 88, 12, 0.95)', to: 'rgba(194, 65, 12, 0.95)' },   // Pending
+    { from: 'rgba(249, 115, 22, 0.95)', to: 'rgba(234, 88, 12, 0.95)' },  // Viewed
+    { from: 'rgba(251, 146, 60, 0.95)', to: 'rgba(249, 115, 22, 0.95)' }, // Interview
+    { from: 'rgba(253, 186, 116, 0.95)', to: 'rgba(251, 146, 60, 0.95)' },// Accepted
+    { from: 'rgba(254, 215, 170, 0.95)', to: 'rgba(253, 186, 116, 0.95)' },// Rejected
+  ];
+  const doughnutBorder = 'rgba(11, 19, 43, 1)'; // dark.base
+
+  const doughnutBackground = (context) => {
+    const { chart, dataIndex, datasetIndex } = context;
+    const { ctx } = chart;
+    const stops = doughnutStops[dataIndex] || doughnutStops[0];
+    const meta = chart.getDatasetMeta(Number.isFinite(datasetIndex) ? datasetIndex : 0);
+    const arc = meta?.data?.[dataIndex];
+    if (!arc) {
+      return stops?.to || 'rgba(249, 115, 22, 0.9)';
+    }
+
+    const x = arc.x;
+    const y = arc.y;
+    const inner = arc.innerRadius;
+    const outer = arc.outerRadius;
+    if (![x, y, inner, outer].every(Number.isFinite) || outer <= 0) {
+      return stops?.to || 'rgba(249, 115, 22, 0.9)';
+    }
+
+    // Radial glow toward the outer edge
+    const innerRadius = Math.max(0, inner * 0.6);
+    const outerRadius = outer;
+    const gradient = ctx.createRadialGradient(
+      x,
+      y,
+      innerRadius,
+      x,
+      y,
+      outerRadius
+    );
+    // Inner = darker, outer = lighter
+    gradient.addColorStop(0, stops.to);
+    gradient.addColorStop(0.7, stops.to);
+    gradient.addColorStop(1, stops.from);
+    return gradient;
+  };
+
   const statusData = {
-    labels: ['Pending', 'Reviewed', 'Interview', 'Accepted', 'Rejected'],
+    labels: ['Pending', 'Viewed', 'Interview', 'Accepted', 'Rejected'],
     datasets: [
       {
         data: [
-          stats?.statusCounts?.pending || 0,
-          stats?.statusCounts?.reviewed || 0,
-          stats?.statusCounts?.interview || 0,
-          stats?.statusCounts?.accepted || 0,
-          stats?.statusCounts?.rejected || 0,
+          statsData?.statusCounts?.pending || 0,
+          statsData?.statusCounts?.viewed || statsData?.statusCounts?.reviewed || 0,
+          statsData?.statusCounts?.interview || 0,
+          statsData?.statusCounts?.accepted || 0,
+          statsData?.statusCounts?.rejected || 0,
         ],
-        backgroundColor: [
-          'rgba(234, 179, 8, 0.5)',
-          'rgba(59, 130, 246, 0.5)',
-          'rgba(139, 92, 246, 0.5)',
-          'rgba(34, 197, 94, 0.5)',
-          'rgba(239, 68, 68, 0.5)',
-        ],
-        borderColor: [
-          'rgb(234, 179, 8)',
-          'rgb(59, 130, 246)',
-          'rgb(139, 92, 246)',
-          'rgb(34, 197, 94)',
-          'rgb(239, 68, 68)',
-        ],
-        borderWidth: 1,
+        backgroundColor: doughnutBackground,
+        borderColor: doughnutBorder,
+        borderWidth: 2,
+        hoverOffset: 6,
       },
     ],
   };
@@ -76,6 +114,9 @@ const StudentDashboard = () => {
     plugins: {
       legend: {
         position: 'top',
+			labels: {
+				color: 'rgba(226, 232, 240, 0.9)',
+			},
       },
     },
   };
@@ -93,12 +134,12 @@ const StudentDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Total Applications</p>
-              <p className="text-3xl font-bold text-white">{stats?.totalApplications || 0}</p>
+              <p className="text-3xl font-bold text-white">{statsData?.totalApplications || 0}</p>
             </div>
             <FiBriefcase className="h-12 w-12 text-primary-500 opacity-50" />
           </div>
           <div className="mt-4">
-            <span className="text-green-600 text-sm">+{stats?.thisMonthApplications || 0} this month</span>
+            <span className="text-green-600 text-sm">+{statsData?.thisMonthApplications || 0} this month</span>
           </div>
         </div>
 
@@ -106,7 +147,7 @@ const StudentDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Saved Jobs</p>
-              <p className="text-3xl font-bold text-white">{stats?.savedJobs || 0}</p>
+              <p className="text-3xl font-bold text-white">{statsData?.savedJobs || 0}</p>
             </div>
             <FiBookmark className="h-12 w-12 text-yellow-500 opacity-50" />
           </div>
@@ -116,7 +157,7 @@ const StudentDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Interviews</p>
-              <p className="text-3xl font-bold text-white">{stats?.interviews || 0}</p>
+              <p className="text-3xl font-bold text-white">{statsData?.interviews || 0}</p>
             </div>
             <FiCheckCircle className="h-12 w-12 text-green-500 opacity-50" />
           </div>
@@ -126,7 +167,7 @@ const StudentDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Profile Views</p>
-              <p className="text-3xl font-bold text-white">{stats?.profileViews || 0}</p>
+              <p className="text-3xl font-bold text-white">{statsData?.profileViews || 0}</p>
             </div>
             <FiEye className="h-12 w-12 text-purple-500 opacity-50" />
           </div>
@@ -171,12 +212,12 @@ const StudentDashboard = () => {
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      application.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+                      (application.status === 'viewed' || application.status === 'reviewed') ? 'bg-blue-100 text-blue-800' :
                       application.status === 'interview' ? 'bg-purple-100 text-purple-800' :
                       application.status === 'accepted' ? 'bg-green-100 text-green-800' :
                       'bg-red-100 text-red-800'
                     }`}>
-                      {application.status?.charAt(0).toUpperCase() + application.status?.slice(1) || 'Pending'}
+                      {(application.status === 'reviewed' ? 'Viewed' : (application.status?.charAt(0).toUpperCase() + application.status?.slice(1))) || 'Pending'}
                     </span>
                   </div>
                 </div>

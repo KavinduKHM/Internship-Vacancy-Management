@@ -20,7 +20,7 @@ const studentJobSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'reviewed', 'interview', 'accepted', 'rejected'],
+    enum: ['pending', 'viewed', 'reviewed', 'interview', 'accepted', 'rejected'],
     default: 'pending',
   },
   coverLetter: {
@@ -30,6 +30,10 @@ const studentJobSchema = new mongoose.Schema({
     type: String,
   },
   appliedAt: {
+    type: Date,
+  },
+  // Employer-side response timestamp (set once on first employer action: viewed/interview/accepted/rejected)
+  employerRespondedAt: {
     type: Date,
   },
   // Saved-job related fields

@@ -9,8 +9,26 @@ export const studentService = {
 
   // Get applied jobs
   getAppliedJobs: async (params = {}) => {
-    const queryParams = new URLSearchParams(params).toString();
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryParams = searchParams.toString();
     const response = await api.get(`/students/applied-jobs${queryParams ? `?${queryParams}` : ''}`);
+    return response.data;
+  },
+
+  // Update an application (pending only)
+  updateApplication: async (applicationId, data) => {
+    const response = await api.put(`/students/applications/${applicationId}`, data);
+    return response.data;
+  },
+
+  // Delete an application (pending only)
+  deleteApplication: async (applicationId) => {
+    const response = await api.delete(`/students/applications/${applicationId}`);
     return response.data;
   },
 
@@ -28,7 +46,13 @@ export const studentService = {
 
   // Get saved jobs
   getSavedJobs: async (params = {}) => {
-    const queryParams = new URLSearchParams(params).toString();
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, value);
+      }
+    });
+    const queryParams = searchParams.toString();
     const response = await api.get(`/students/saved-jobs${queryParams ? `?${queryParams}` : ''}`);
     return response.data;
   },

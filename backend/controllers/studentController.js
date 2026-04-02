@@ -1,6 +1,35 @@
 const Job = require('../models/job');
 const User = require('../models/user');
 const StudentJob = require('../models/studentJob');
+const path = require('path');
+const fs = require('fs');
+
+const normalizeStoredUploadPath = (storedPath) => {
+  if (!storedPath) return null;
+  const normalized = String(storedPath).replace(/\\/g, '/');
+  const uploadsIndex = normalized.lastIndexOf('/uploads/');
+  if (uploadsIndex !== -1) {
+    return normalized.slice(uploadsIndex + 1); // strip leading '/'
+  }
+  if (normalized.includes('uploads/')) {
+    return normalized.slice(normalized.indexOf('uploads/'));
+  }
+  return normalized.startsWith('/') ? normalized.slice(1) : normalized;
+};
+
+const resumeUrlFromPath = (req, storedPath) => {
+  const relative = normalizeStoredUploadPath(storedPath);
+  if (!relative) return null;
+  const host = `${req.protocol}://${req.get('host')}`;
+  return `${host}/${relative}`;
+};
+
+const resumeStoredPathFromFile = (file) => {
+  if (!file) return undefined;
+  // Always store as a workspace-relative path so URLs work cross-platform
+  const fileName = file.filename || path.basename(file.path || '');
+  return `uploads/resumes/${fileName}`;
+};
 
 // Helper to get or create StudentJob doc
 const getOrCreateStudentJob = async (studentId, jobId) => {
@@ -17,13 +46,20 @@ exports.applyForJob = async (req, res) => {
     const studentId = req.user.userId;
     const { jobId } = req.params;
     const { coverLetter } = req.body || {};
-    const resumePath = req.file ? req.file.path : undefined;
+    const resumePath = resumeStoredPathFromFile(req.file);
 
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({
         success: false,
         message: 'Job not found',
+      });
+    }
+
+    if (job.status !== 'active' || job.isExpired()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Applications are closed for this job',
       });
     }
 
@@ -36,6 +72,8 @@ exports.applyForJob = async (req, res) => {
     }
 
     record.hasApplied = true;
+    record.status = 'pending';
+    record.employerRespondedAt = null;
     record.coverLetter = coverLetter || record.coverLetter;
     if (resumePath) {
       record.resumePath = resumePath;
@@ -54,7 +92,7 @@ exports.applyForJob = async (req, res) => {
         jobId: record.jobId,
         appliedAt: record.appliedAt,
         status: record.status,
-        resumePath: record.resumePath,
+        resumeUrl: resumeUrlFromPath(req, record.resumePath),
       },
     });
   } catch (error) {
@@ -72,8 +110,25 @@ exports.getAppliedJobs = async (req, res) => {
   try {
     const studentId = req.user.userId;
 
-    const records = await StudentJob.find({ studentId, hasApplied: true })
+    const { status, page = 1, limit = 10 } = req.query;
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+
+    const query = { studentId, hasApplied: true };
+    if (status) {
+      if (status === 'viewed') {
+        query.status = { $in: ['viewed', 'reviewed'] };
+      } else {
+        query.status = status;
+      }
+    }
+
+    const total = await StudentJob.countDocuments(query);
+
+    const records = await StudentJob.find(query)
       .sort({ appliedAt: -1 })
+      .limit(limitNumber)
+      .skip((pageNumber - 1) * limitNumber)
       .populate('jobId');
 
     const applications = records
@@ -87,17 +142,130 @@ exports.getAppliedJobs = async (req, res) => {
         status: r.status || 'pending',
         location: r.jobId.location,
         specialization: r.jobId.specialization,
+        coverLetter: r.coverLetter,
+        resumeUrl: resumeUrlFromPath(req, r.resumePath),
       }));
 
     return res.status(200).json({
       success: true,
       data: applications,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        pages: Math.ceil(total / limitNumber),
+      },
     });
   } catch (error) {
     console.error('Error fetching applied jobs:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch applied jobs',
+      error: error.message,
+    });
+  }
+};
+
+// PUT /api/students/applications/:applicationId (pending only)
+exports.updateApplication = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const { applicationId } = req.params;
+    const { coverLetter } = req.body || {};
+    const resumePath = resumeStoredPathFromFile(req.file);
+
+    const record = await StudentJob.findOne({ _id: applicationId, studentId, hasApplied: true });
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    if ((record.status || 'pending') !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only edit an application while its status is pending',
+      });
+    }
+
+    if (coverLetter !== undefined) {
+      record.coverLetter = coverLetter;
+    }
+    if (resumePath) {
+      record.resumePath = resumePath;
+    }
+
+    await record.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Application updated successfully',
+      data: {
+        id: record._id,
+        status: record.status,
+        coverLetter: record.coverLetter,
+        resumeUrl: resumeUrlFromPath(req, record.resumePath),
+      },
+    });
+  } catch (error) {
+    console.error('Error updating application:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update application',
+      error: error.message,
+    });
+  }
+};
+
+// DELETE /api/students/applications/:applicationId (pending only)
+exports.deleteApplication = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const { applicationId } = req.params;
+
+    const record = await StudentJob.findOne({ _id: applicationId, studentId, hasApplied: true });
+    if (!record) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    if ((record.status || 'pending') !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only delete an application while its status is pending',
+      });
+    }
+
+    // decrement applicationsCount on the job (best-effort)
+    if (record.jobId) {
+      await Job.findByIdAndUpdate(record.jobId, { $inc: { applicationsCount: -1 } });
+    }
+
+    // best-effort delete resume file
+    const storedResumePath = normalizeStoredUploadPath(record.resumePath);
+    if (storedResumePath) {
+      const absolute = path.join(__dirname, '..', storedResumePath);
+      fs.promises.unlink(absolute).catch(() => {});
+    }
+
+    if (record.isSaved) {
+      record.hasApplied = false;
+      record.appliedAt = null;
+      record.coverLetter = null;
+      record.resumePath = null;
+      record.status = 'pending';
+      record.employerRespondedAt = null;
+      await record.save();
+    } else {
+      await StudentJob.deleteOne({ _id: record._id });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Application deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting application:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete application',
       error: error.message,
     });
   }
@@ -295,17 +463,16 @@ exports.getApplicationStats = async (req, res) => {
 
     const statusCounts = {
       pending: 0,
-      reviewed: 0,
+      viewed: 0,
       interview: 0,
       accepted: 0,
       rejected: 0,
     };
 
     applications.forEach((a) => {
-      const key = a.status || 'pending';
-      if (statusCounts[key] !== undefined) {
-        statusCounts[key] += 1;
-      }
+      const raw = a.status || 'pending';
+      const key = raw === 'reviewed' ? 'viewed' : raw;
+      if (statusCounts[key] !== undefined) statusCounts[key] += 1;
     });
 
     // Simple monthlyApplications array (last 6 months) and corresponding month labels

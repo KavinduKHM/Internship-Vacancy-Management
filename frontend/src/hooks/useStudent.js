@@ -9,7 +9,9 @@ export const useStudent = () => {
     return useQuery({
       queryKey: ['appliedJobs', params],
       queryFn: () => studentService.getAppliedJobs(params),
-      staleTime: 5 * 60 * 1000,
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
     });
   };
 
@@ -18,6 +20,8 @@ export const useStudent = () => {
       queryKey: ['savedJobs', params],
       queryFn: () => studentService.getSavedJobs(params),
       staleTime: 5 * 60 * 1000,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
     });
   };
 
@@ -33,6 +37,9 @@ export const useStudent = () => {
     return useQuery({
       queryKey: ['applicationStats'],
       queryFn: studentService.getApplicationStats,
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
     });
   };
 
@@ -83,6 +90,30 @@ export const useStudent = () => {
     },
   });
 
+  const updateApplicationMutation = useMutation({
+    mutationFn: ({ applicationId, data }) => studentService.updateApplication(applicationId, data),
+    onSuccess: (data) => {
+      toast.success(data.message || 'Application updated');
+      queryClient.invalidateQueries({ queryKey: ['appliedJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['applicationStats'] });
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update application');
+    },
+  });
+
+  const deleteApplicationMutation = useMutation({
+    mutationFn: (applicationId) => studentService.deleteApplication(applicationId),
+    onSuccess: (data) => {
+      toast.success(data.message || 'Application deleted');
+      queryClient.invalidateQueries({ queryKey: ['appliedJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['applicationStats'] });
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to delete application');
+    },
+  });
+
   return {
     useAppliedJobs,
     useSavedJobs,
@@ -92,8 +123,12 @@ export const useStudent = () => {
     saveJob: saveJobMutation.mutate,
     unsaveJob: unsaveJobMutation.mutate,
     updateProfile: updateProfileMutation.mutate,
+    updateApplication: updateApplicationMutation.mutate,
+    deleteApplication: deleteApplicationMutation.mutate,
     isApplying: applyJobMutation.isPending,
     isSaving: saveJobMutation.isPending,
     isUpdatingProfile: updateProfileMutation.isPending,
+    isUpdatingApplication: updateApplicationMutation.isPending,
+    isDeletingApplication: deleteApplicationMutation.isPending,
   };
 };

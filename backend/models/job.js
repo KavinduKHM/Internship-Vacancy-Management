@@ -13,18 +13,24 @@ const jobSchema = new mongoose.Schema({
   },
   jobTitle: {
     type: String,
-    required: [true, 'Job title is required'],
+    required: function () {
+      return this.status !== 'draft';
+    },
     trim: true,
     maxlength: [100, 'Job title cannot exceed 100 characters']
   },
   company: {
     type: String,
-    required: [true, 'Company name is required'],
+    required: function () {
+      return this.status !== 'draft';
+    },
     trim: true
   },
   specialization: {
     type: String,
-    required: [true, 'Specialization is required'],
+    required: function () {
+      return this.status !== 'draft';
+    },
     enum: [
       'Software Engineering',
       'Web Development',
@@ -45,18 +51,24 @@ const jobSchema = new mongoose.Schema({
   },
   requirements: {
     type: String,
-    required: [true, 'Job requirements are required'],
+    required: function () {
+      return this.status !== 'draft';
+    },
     trim: true
   },
   description: {
     type: String,
-    required: [true, 'Job description is required'],
+    required: function () {
+      return this.status !== 'draft';
+    },
     trim: true
   },
   location: {
     city: {
       type: String,
-      required: true,
+      required: function () {
+        return this.status !== 'draft';
+      },
       trim: true,
       index: true
     },
@@ -71,9 +83,13 @@ const jobSchema = new mongoose.Schema({
   },
   applicationDeadline: {
     type: Date,
-    required: [true, 'Application deadline is required'],
+    required: function () {
+      return this.status !== 'draft';
+    },
     validate: {
       validator: function(value) {
+        if (this.status === 'draft') return true;
+        if (!value) return false;
         return value > new Date();
       },
       message: 'Deadline must be in the future'

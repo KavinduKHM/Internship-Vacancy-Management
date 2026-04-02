@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi';
 import { BACKEND_URL } from '../../services/api';
 
-const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdit, onDelete, onBack }) => {
+const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdit, onDelete, onBack, onUpdateApplicationStatus, onMarkApplicationViewed, onUpdateJobStatus }) => {
   if (!job) return null;
 
   const posterSrc = job.posterUrl
@@ -180,7 +180,10 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
 
         {!applicationsLoading && applications && applications.length > 0 && (
           <div className="space-y-4">
-          {applications.map((app) => (
+          {applications.map((app) => {
+            const displayStatus = app.status === 'reviewed' ? 'viewed' : app.status;
+            const isFinal = displayStatus === 'accepted' || displayStatus === 'rejected';
+            return (
             <div
             key={app.id}
             className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3"
@@ -210,24 +213,51 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
 
             <div className="flex flex-col items-start md:items-end gap-2">
               <span className="px-3 py-1 text-[11px] rounded-full bg-slate-800 text-slate-100 border border-slate-700">
-              {app.status || 'Applied'}
+              {displayStatus || 'Applied'}
               </span>
+              {!isFinal && typeof onUpdateApplicationStatus === 'function' && (
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button
+                    onClick={() => onUpdateApplicationStatus(app.id, 'interview')}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/70 border border-slate-700 text-xs font-medium text-slate-100 hover:bg-slate-800 transition"
+                  >
+                    Call for Interview
+                  </button>
+                  <button
+                    onClick={() => onUpdateApplicationStatus(app.id, 'accepted')}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-600 text-xs font-medium text-white hover:bg-primary-700 transition"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => onUpdateApplicationStatus(app.id, 'rejected')}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-600 text-xs font-medium text-white hover:bg-red-700 transition"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
               {app.resumeUrl ? (
-              <a
-                href={app.resumeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof onMarkApplicationViewed === 'function') {
+                    onMarkApplicationViewed(app.id);
+                  }
+                  window.open(app.resumeUrl, '_blank', 'noopener,noreferrer');
+                }}
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-600 text-xs font-medium text-white hover:bg-primary-700 transition"
               >
                 <FiDownload className="h-3 w-3" />
                 Download CV
-              </a>
+              </button>
               ) : (
               <span className="text-[11px] text-slate-500">No CV attached</span>
               )}
             </div>
             </div>
-          ))}
+            );
+          })}
           </div>
         )}
         </div>
@@ -284,9 +314,28 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
         </div>
 
         <div className="mt-6 space-y-3">
-          <button className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition">
-          Boost This Posting
+          {job.status === 'draft' && typeof onUpdateJobStatus === 'function' && (
+          <button
+            type="button"
+            onClick={() => onUpdateJobStatus('active')}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition"
+          >
+            Publish Job
           </button>
+          )}
+          {job.status === 'active' && typeof onUpdateJobStatus === 'function' && (
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Mark this job as filled? Students will no longer be able to apply.')) {
+                onUpdateJobStatus('filled');
+              }
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-slate-900/70 border border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-800 transition"
+          >
+            Mark as Filled
+          </button>
+          )}
           <button className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-5 py-2.5 text-sm text-slate-100 hover:bg-slate-800 transition">
           <FiLink className="h-4 w-4" />
           Copy Shareable Link

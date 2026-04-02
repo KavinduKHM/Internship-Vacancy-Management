@@ -29,6 +29,16 @@ export const jobService = {
     return response.data;
   },
 
+  updateApplicationStatus: async ({ jobId, applicationId, status }) => {
+    const response = await api.put(`/jobs/${jobId}/applications/${applicationId}/status`, { status });
+    return response.data;
+  },
+
+  markApplicationViewed: async ({ jobId, applicationId }) => {
+    const response = await api.put(`/jobs/${jobId}/applications/${applicationId}/viewed`);
+    return response.data;
+  },
+
   // Public single job for students
   getPublicJobById: async (id) => {
     const response = await api.get(`/jobs/active/${id}`);

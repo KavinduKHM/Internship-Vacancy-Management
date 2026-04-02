@@ -2,51 +2,112 @@ const { body, param, query, validationResult } = require('express-validator');
 
 // Validate job creation
 const validateJobCreation = [
+  body('status')
+    .optional()
+    .isIn(['active', 'filled', 'expired', 'draft']).withMessage('Invalid status'),
+
   body('jobTitle')
-    .notEmpty().withMessage('Job title is required')
     .trim()
     .isLength({ max: 100 }).withMessage('Job title cannot exceed 100 characters'),
+  body('jobTitle').custom((value, { req }) => {
+    const isDraft = req.body?.status === 'draft';
+    if (isDraft) return true;
+    if (!value || !String(value).trim()) {
+      throw new Error('Job title is required');
+    }
+    return true;
+  }),
   
   body('company')
-    .notEmpty().withMessage('Company name is required')
     .trim(),
+  body('company').custom((value, { req }) => {
+    const isDraft = req.body?.status === 'draft';
+    if (isDraft) return true;
+    if (!value || !String(value).trim()) {
+      throw new Error('Company name is required');
+    }
+    return true;
+  }),
   
   body('specialization')
-    .notEmpty().withMessage('Specialization is required')
+    .optional({ checkFalsy: true })
     .isIn([
       'Software Engineering', 'Web Development', 'Mobile Development',
       'Data Science', 'Machine Learning', 'DevOps', 'Cloud Computing',
       'Cybersecurity', 'UI/UX Design', 'Product Management', 'Quality Assurance',
       'IT Support', 'Network Administration', 'Database Administration', 'Other'
     ]).withMessage('Invalid specialization'),
+  body('specialization').custom((value, { req }) => {
+    const isDraft = req.body?.status === 'draft';
+    if (isDraft) return true;
+    if (!value || !String(value).trim()) {
+      throw new Error('Specialization is required');
+    }
+    return true;
+  }),
   
   body('requirements')
-    .notEmpty().withMessage('Requirements are required')
     .trim(),
+  body('requirements').custom((value, { req }) => {
+    const isDraft = req.body?.status === 'draft';
+    if (isDraft) return true;
+    if (!value || !String(value).trim()) {
+      throw new Error('Requirements are required');
+    }
+    return true;
+  }),
   
   body('description')
-    .notEmpty().withMessage('Description is required')
     .trim(),
+  body('description').custom((value, { req }) => {
+    const isDraft = req.body?.status === 'draft';
+    if (isDraft) return true;
+    if (!value || !String(value).trim()) {
+      throw new Error('Description is required');
+    }
+    return true;
+  }),
   
   body('location.city')
-    .notEmpty().withMessage('City is required')
     .trim(),
+  body('location.city').custom((value, { req }) => {
+    const isDraft = req.body?.status === 'draft';
+    if (isDraft) return true;
+    if (!value || !String(value).trim()) {
+      throw new Error('City is required');
+    }
+    return true;
+  }),
   
   body('applicationDeadline')
-    .notEmpty().withMessage('Application deadline is required')
-    .isISO8601().withMessage('Invalid date format')
-    .custom(value => {
+    .custom((value, { req }) => {
+      const isDraft = req.body?.status === 'draft';
+      if (isDraft) return true;
+
+      if (!value) {
+        throw new Error('Application deadline is required');
+      }
+
       const deadlineDate = new Date(value);
+      if (Number.isNaN(deadlineDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+
       const currentDate = new Date();
       if (deadlineDate <= currentDate) {
         throw new Error('Application deadline must be in the future');
       }
+
       return true;
     }),
   
   body('positionsAvailable')
     .optional()
     .isInt({ min: 1 }).withMessage('Positions must be at least 1'),
+
+  body('status')
+    .optional()
+    .isIn(['active', 'filled', 'expired', 'draft']).withMessage('Invalid status'),
   
   body('skills')
     .optional()
@@ -106,20 +167,25 @@ const validateJobUpdate = [
     .trim(),
   
   body('applicationDeadline')
-    .optional()
-    .isISO8601().withMessage('Invalid date format')
-    .custom(value => {
+    .optional({ checkFalsy: true })
+    .custom((value, { req }) => {
+      if (!value) return true;
+
       const deadlineDate = new Date(value);
+      if (Number.isNaN(deadlineDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+
+      const isDraft = req.body?.status === 'draft';
+      if (isDraft) return true;
+
       const currentDate = new Date();
       if (deadlineDate <= currentDate) {
         throw new Error('Application deadline must be in the future');
       }
+
       return true;
     }),
-  
-  body('status')
-    .optional()
-    .isIn(['active', 'filled', 'expired', 'draft']).withMessage('Invalid status'),
   
   body('positionsAvailable')
     .optional()

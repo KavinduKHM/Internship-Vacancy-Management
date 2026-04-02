@@ -81,10 +81,32 @@ export const useJobs = () => {
     },
   });
 
+  const updateApplicationStatusMutation = useMutation({
+    mutationFn: jobService.updateApplicationStatus,
+    onSuccess: (data, variables) => {
+      toast.success(data.message || 'Application status updated');
+      queryClient.invalidateQueries({ queryKey: ['jobApplications', variables.jobId] });
+      queryClient.invalidateQueries({ queryKey: ['job', variables.jobId] });
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update application status');
+    },
+  });
+
+  const markApplicationViewedMutation = useMutation({
+    mutationFn: jobService.markApplicationViewed,
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['jobApplications', variables.jobId] });
+    },
+  });
+
   const useStatistics = () => {
     return useQuery({
       queryKey: ['jobStatistics'],
       queryFn: jobService.getJobStatistics,
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
     });
   };
 
@@ -97,9 +119,13 @@ export const useJobs = () => {
     createJob: createJobMutation.mutate,
     updateJob: updateJobMutation.mutate,
     deleteJob: deleteJobMutation.mutate,
+    updateApplicationStatus: updateApplicationStatusMutation.mutate,
+    markApplicationViewed: markApplicationViewedMutation.mutate,
     useStatistics,
     isCreating: createJobMutation.isPending,
     isUpdating: updateJobMutation.isPending,
     isDeleting: deleteJobMutation.isPending,
+    isUpdatingApplicationStatus: updateApplicationStatusMutation.isPending,
+    isMarkingApplicationViewed: markApplicationViewedMutation.isPending,
   };
 };
