@@ -183,6 +183,14 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
           {applications.map((app) => {
             const displayStatus = app.status === 'reviewed' ? 'viewed' : app.status;
             const isFinal = displayStatus === 'accepted' || displayStatus === 'rejected';
+			const mailToHref = (() => {
+				if (!app.studentEmail) return null;
+				const subject = `Regarding your application for ${job.jobTitle}`;
+				const body = `Hi ${app.studentName || ''},\n\n` +
+					`Thanks for applying for the ${job.jobTitle} role at ${job.company}.\n\n` +
+					`Best regards,\n${job.company}`;
+				return `mailto:${encodeURIComponent(app.studentEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+			})();
             return (
             <div
             key={app.id}
@@ -237,6 +245,18 @@ const JobDetails = ({ job, applications = [], applicationsLoading = false, onEdi
                   </button>
                 </div>
               )}
+			  {mailToHref ? (
+				<a
+					href={mailToHref}
+					className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/70 border border-slate-700 text-xs font-medium text-slate-100 hover:bg-slate-800 transition"
+					title="Email applicant"
+				>
+					<FiMail className="h-3 w-3" />
+					Email Applicant
+				</a>
+			  ) : (
+				<span className="text-[11px] text-slate-500">No email available</span>
+			  )}
               {app.resumeUrl ? (
               <button
                 type="button"
